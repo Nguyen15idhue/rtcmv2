@@ -1,0 +1,38 @@
+{
+  "capture": {
+    "interface": "eth0",
+    "filter": "tcp port 12101"
+  },
+  "casters": [
+    {
+      "name": "caster-a",
+      "host": "caster1.example.com",
+      "port": 2101,
+      "mountpoint": "/STATION1",
+      "password": "secret1",
+      "station_id": 1234
+    },
+    {
+      "name": "caster-b",
+      "host": "caster2.example.com",
+      "port": 2101,
+      "mountpoint": "/STATION2",
+      "password": "secret2",
+      "station_id": 5678
+    }
+  ],
+  "default_caster": {
+    "name": "default",
+    "host": "caster.example.com",
+    "port": 2101,
+    "mountpoint": "/STATION",
+    "password": "default_pass"
+  },
+  "relay": {
+    "reconnect_interval": 5,
+    "write_timeout": 10,
+    "agent": "rtcmv2-relay/1.0",
+    "max_dynamic_stations": 10,
+    "idle_timeout": 300
+  }
+}

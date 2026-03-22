@@ -1,231 +1,257 @@
-# Agent Instructions for RTCMv2 Relay
+# Agent Instructions for RTCMv2 Relay (Sniffer Architecture)
 
-TCP stream relay for RTCM data. Captures TCP from a port, parses RTCM stream, splits by station, relays to NTRIP caster. Built with Go.
+Passive TCP relay system for RTCM data.
+Captures network traffic WITHOUT connecting to source server,
+reassembles TCP streams, extracts RTCM frames, and relays to NTRIP caster.
 
-**Stack**: Go, go-gnss/rtcm, NTRIP protocol
+**Stack**: Go, gopacket, tcpassembly, NTRIP protocol
 
-**Project Goal**:
-Capture data from an existing TCP port WITHOUT affecting the original service,
-parse RTCM stream into individual stations, and relay to another caster reliably.
+---
+
+## 🎯 Project Goal
+
+- Capture RTCM data from an existing TCP port WITHOUT affecting original service
+- Do NOT create any connection to source server
+- Reassemble TCP stream correctly
+- Extract RTCM frames
+- Relay frames to another NTRIP caster reliably
 
 ---
 
 ## ⚠️ Core Principles (MANDATORY)
 
-- Correctness and stability FIRST
+- Correctness FIRST (especially TCP reassembly)
 - Do NOT over-engineer
-- Keep modules simple and isolated
-- Build skeleton first, then improve
-- Never break existing structure
-- Never implement full system at once
+- Keep modules minimal and isolated
+- Build step-by-step (phase-based)
+- NEVER break existing working modules
+- NEVER implement multiple phases at once
 
 ---
 
 ## 🧠 Development Workflow (CRITICAL)
 
 1. Explain approach first (NO code)
-2. Break into small steps
-3. Implement ONE step only
-4. Wait for approval before continuing
+2. Break into smallest possible step
+3. Implement ONLY that step
+4. WAIT for approval before continuing
 
 NEVER:
 - Write full system at once
+- Jump across phases
 - Modify unrelated code
-- Add extra features
+- Add features not requested
 
 ---
 
 ## 🔒 Scope Control
 
 - Do NOT redesign architecture
-- Do NOT introduce new features unless asked
-- Only implement requested module/function
-- Warn if request may break existing structure
+- Do NOT introduce new features
+- Only implement EXACT requested functionality
+- If unclear → ASK before coding
 
 ---
 
 ## 🏗️ Project Structure
 
-
 rtcmv2/
 ├── cmd/relay/main.go
 ├── internal/
-│ ├── capture/ # TCP capture
-│ ├── buffer/ # byte stream reassembly
-│ ├── parser/ # RTCM decoding
-│ ├── router/ # station split
-│ ├── relay/ # NTRIP client
+│ ├── capture/       # packet capture (gopacket)
+│ ├── reassembly/    # tcpassembly logic
+│ ├── buffer/        # RTCM frame extraction (DONE)
+│ ├── relay/         # NTRIP client
 │ └── config/
-
 
 ---
 
-## 🔄 System Architecture
+## 🔄 System Architecture (CRITICAL)
 
 Modules:
 
-- capture: reads raw TCP stream
-- buffer: reassembles byte stream
-- parser: decodes RTCM messages
-- router: splits by station
-- relay: sends to NTRIP caster
+- capture: sniff packets (pcap)
+- reassembly: rebuild TCP stream (tcpassembly)
+- buffer: extract RTCM frames (already implemented)
+- relay: send frames to caster
 
 ---
 
 ## 🔁 Data Flow (CRITICAL)
 
-TCP Stream → Buffer → RTCM Decode → Station Router → Relay
-
-IMPORTANT:
-
-- TCP is a continuous byte stream
-- No packet/message boundaries guaranteed
-- RTCM messages must be reconstructed from bytes
-- Multiple stations may exist in one stream
-
----
-
-## ⚡ RTCM Buffer Strategy (CRITICAL)
-
-- Maintain continuous byte buffer per connection
-- Search for sync byte: 0xD3
-- Next 2 bytes define message length
-- Wait until FULL message is available
-- Then parse message
-
-After parsing:
-- Remove processed bytes from buffer
-
-NEVER assume:
-- One TCP read = one RTCM message
-- Packets are aligned
+Network Packets
+    ↓
+gopacket capture
+    ↓
+tcpassembly (reorder TCP)
+    ↓
+byte stream (io.Reader)
+    ↓
+buffer.Write()
+    ↓
+RTCM frames
+    ↓
+relay to caster
 
 ---
 
-## 🛰️ RTCM Handling
+## 🚫 IMPORTANT DIFFERENCE
 
-- Use go-gnss/rtcm
-- Extract station ID from messages (MSM)
-- Support multiple stations in same stream
-- Handle partial messages safely
+This is NOT a TCP client system.
+
+- Do NOT use net.Dial to source server
+- Do NOT create connections to source
+- ONLY sniff traffic via network interface
 
 ---
 
-## 🔀 Station Routing Strategy
+## ⚡ TCP Reassembly Rules (CRITICAL)
 
-- Extract stationID from RTCM message
-- Maintain map: stationID → relay client
-- Each station has its own mountpoint
-- Route messages by stationID
+- Use tcpassembly (DO NOT implement manually)
+- Each TCP flow must have its own stream
+- Use goroutine per stream
+- Read stream via tcpreader.ReaderStream
 
 NEVER:
-- Mix data between stations
+- Append raw packets directly
+- Assume packet order is correct
+- Ignore retransmissions
 
 ---
 
-## 🌐 NTRIP Protocol
+## ⚡ RTCM Buffer Rules (CRITICAL)
 
-- Use NTRIP v1/v2
-- Authenticate with:
-  SOURCE <password> <mountpoint>
+(ALREADY IMPLEMENTED — DO NOT MODIFY)
+
+- Input: []byte stream
+- Output: [][]byte (complete RTCM frames)
+
+Rules:
+- Sync byte = 0xD3
+- Length = 10-bit field
+- Frame size = 6 + length
+
+NEVER:
+- Modify buffer logic unless explicitly asked
+- Parse RTCM here (buffer ONLY extracts frames)
+
+---
+
+## 🛰️ RTCM Handling (DEFERRED)
+
+- DO NOT implement full RTCM parsing yet
+- DO NOT integrate go-gnss/rtcm in early phases
+
+Only:
+- treat RTCM as binary frames
+- forward as-is
+
+---
+
+## 🌐 Relay (NTRIP)
+
+- Connect ONLY to destination caster
 - Send:
-  Source-Agent: rtcmv2-relay
+  SOURCE <password> <mountpoint>
 
-- Handle:
-  - connection drops
+- Send frames immediately (low latency)
+
+- Must handle:
   - reconnect
-  - basic responses
+  - timeout
+  - broken pipe
 
 ---
 
-## 🔌 Network I/O Rules
+## 🔌 Network Rules
 
-- Use timeouts for all connections
-- Handle partial reads
-- Use buffer size: 8KB–64KB
-- Implement reconnect with backoff (1–5s)
+- Capture via interface (pcap)
+- Apply BPF filter:
+  tcp and port XXXX
+
+- Do NOT capture unnecessary traffic
 
 ---
 
 ## 🔁 Failure Handling (CRITICAL)
 
-- Do NOT crash on connection errors
-- Reconnect automatically
-- Use backoff retry
-- Log all errors but continue running
+- System MUST NOT crash
+- Auto-reconnect relay
+- Drop broken flows safely
+- Continue processing other streams
 
 ---
 
-## ⚙️ Concurrency
+## ⚙️ Concurrency Rules
 
-- Use goroutines for:
-  - capture
-  - relay per station
-
-- Use:
-  - channels for communication
-  - sync.Mutex / RWMutex for shared state
-
-- Avoid goroutine leaks
+- Goroutine per TCP stream
+- Do NOT block packet capture loop
+- Avoid memory leaks
+- Clean up inactive streams
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing Strategy
 
-- Use table-driven tests
-- Mock:
-  - TCP input
-  - NTRIP caster
-
-- Test:
-  - buffer correctness
-  - RTCM parsing
-  - routing logic
+- Test buffer separately ✅
+- Test reassembly with sample packets
+- Test relay with mock caster
 
 ---
 
 ## 🧹 Code Style
 
-- Use gofmt / goimports
-- Wrap errors with context
-- Keep functions small
-- Avoid unnecessary abstractions
+- Minimal code only
+- No unnecessary abstraction
+- Small functions
+- Clear responsibilities
 
 ---
 
 ## 🧠 Implementation Rules (VERY IMPORTANT)
 
-- Implement ONE function at a time
-- Do NOT write entire module in one step
-- Do NOT refactor unrelated code
-- Always explain before coding
+- ONE function at a time
+- ONE phase at a time
+- NEVER jump ahead
+- NEVER combine capture + relay in one step
 
 ---
 
 ## 🐛 Debugging Rules
 
-- Find ROOT CAUSE first
-- Do NOT rewrite large code blocks
-- Suggest minimal fix
+- Identify ROOT CAUSE
+- Fix minimal code only
+- Do NOT rewrite modules
 
 ---
 
-## 🚀 Development Priority
+## 🚀 Development Priority (UPDATED)
 
-1. Capture TCP stream
-2. Implement buffer correctly
-3. Parse RTCM messages
-4. Split by station
-5. Relay to caster
-6. Add reconnect logic
-7. Improve performance/logging
+1. Packet capture (gopacket)
+2. TCP reassembly (tcpassembly) 🔥
+3. Integrate buffer (stream → frames)
+4. Relay (NTRIP)
+5. Reconnect logic
+6. Stability & cleanup
+7. (Optional) RTCM parsing later
+
+---
+
+## 🚨 Anti-Overengineering Rule
+
+If solution includes:
+- unnecessary abstraction
+- complex architecture
+- unused components
+
+→ STOP and simplify
 
 ---
 
 ## 🧪 Running
 
 ```bash
-go run ./cmd/relay/main.go --config=config.yaml
-📊 Debugging
+go run ./cmd/relay/main.go
+🧪 Testing
 go test -v ./...
 go test -cover ./...
