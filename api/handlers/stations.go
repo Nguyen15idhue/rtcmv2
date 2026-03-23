@@ -17,19 +17,12 @@ type StationsHandler struct {
 	mu          sync.RWMutex
 }
 
-func NewStationsHandler(metrics *relay.Metrics) *StationsHandler {
+func NewStationsHandler(metrics *relay.Metrics, castersCfg *relay.CastersConfig) *StationsHandler {
 	cfg, err := relay.LoadStations("")
 	if err != nil {
 		cfg = &relay.StationsConfig{
 			Stations:   []relay.Station{},
 			Unassigned: []relay.UnassignedStation{},
-		}
-	}
-
-	castersCfg, err := relay.LoadCasters("")
-	if err != nil {
-		castersCfg = &relay.CastersConfig{
-			Casters: []relay.Caster{},
 		}
 	}
 

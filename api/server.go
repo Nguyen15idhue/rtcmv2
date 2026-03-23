@@ -22,8 +22,8 @@ type Server struct {
 
 func NewServer(addr string, metrics *relay.Metrics, dispatcher *relay.Dispatcher) *Server {
 	auth := middleware.NewAuthMiddleware()
-	stations := handlers.NewStationsHandler(metrics)
 	casters := handlers.NewCastersHandler()
+	stations := handlers.NewStationsHandler(metrics, casters.GetConfig())
 	config := handlers.NewConfigHandler(stations, casters)
 	sse := handlers.NewSSEHandler(metrics)
 
