@@ -53,6 +53,11 @@ func skipAuth(path string) bool {
 	if path == "/" {
 		return true
 	}
+
+	if !strings.HasPrefix(path, "/api/") {
+		return true
+	}
+
 	if path == "/api/health" {
 		return true
 	}

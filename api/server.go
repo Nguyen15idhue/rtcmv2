@@ -99,7 +99,7 @@ func NewServer(addr string, metrics *relay.Metrics, dispatcher *relay.Dispatcher
 	mux.HandleFunc("/api/reload", config.ReloadConfig)
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
+		if r.URL.Path == "/" || !strings.HasPrefix(r.URL.Path, "/api/") {
 			http.ServeFile(w, r, "public/index.html")
 			return
 		}
