@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"runtime/debug"
 	"time"
 
 	"github.com/google/gopacket"
@@ -71,6 +72,12 @@ func (c *Capture) Run(ctx context.Context) error {
 
 	log.Printf("capture: started on interface %s, filter: %s", c.config.Interface, c.config.BPFFilter)
 
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("capture: panic recovered: %v\n%s", r, debug.Stack())
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -87,6 +94,12 @@ func (c *Capture) Run(ctx context.Context) error {
 }
 
 func (c *Capture) processPacket(packet gopacket.Packet) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("capture: processPacket panic recovered: %v", r)
+		}
+	}()
+
 	tcpLayer := packet.Layer(layers.LayerTypeTCP)
 	if tcpLayer == nil {
 		return

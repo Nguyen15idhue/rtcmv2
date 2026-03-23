@@ -110,123 +110,90 @@ Endpoints:
 
 ---
 
-## Phase 10: Prometheus Monitoring
+## Phase 10: Production Hardening ✅
 
-### 10.1 Prometheus Exporter
-- [ ] Add /metrics endpoint
-- [ ] Export metrics:
-  - [ ] rtcm_frames_total{station}
-  - [ ] rtcm_dropped_total{station}
-  - [ ] rtcm_active_stations
-  - [ ] rtcm_reconnect_total
+### 10.1 Better Reconnect ✅
+- [x] Implement exponential backoff
+  - [x] start: 1s
+  - [x] max: 60s
+- [x] Reset backoff on successful connect
 
----
+### 10.2 Panic Safety ✅
+- [x] Add recover() in all goroutines
+- [x] Log panic errors
+- [x] safeGo() helper function
 
-### 10.2 Integration
-- [ ] Test with Prometheus scrape
-- [ ] Validate metric labels
+### 10.3 Graceful Shutdown ✅
+- [x] Handle SIGINT / SIGTERM
+- [x] Stop capture loop
+- [x] Close channels safely
+- [x] Close all relay connections
+- [x] WaitGroup for goroutines
+- [x] Timeout (10s)
 
----
-
-### 10.3 Grafana (Optional)
-- [ ] Create dashboard JSON
-  - [ ] FPS per station
-  - [ ] active stations
-  - [ ] drop rate
-  - [ ] reconnect count
-
----
-
-## Phase 11: Reliability & Hardening
-
-### 11.1 Reconnect Strategy
-- [ ] Implement exponential backoff
-  - [ ] min delay (1s)
-  - [ ] max delay (60s)
-- [ ] Reset backoff on success
-
----
-
-### 11.2 Circuit Breaker (Per Relay)
-- [ ] Track consecutive failures
-- [ ] Stop reconnect after threshold
-- [ ] Cooldown period before retry
-
----
-
-### 11.3 Panic Recovery
-- [ ] Add recover() in all goroutines
-- [ ] Log panic with stack trace
-
----
-
-### 11.4 Graceful Shutdown
-- [ ] Handle SIGINT / SIGTERM
-- [ ] Stop capture loop
-- [ ] Close frame channel
-- [ ] Drain dispatcher
-- [ ] Close all relays
-- [ ] Wait for goroutines to exit
-
----
-
-## Phase 12: Performance & Scaling
-
-### 12.1 Memory Optimization
-- [ ] Reuse buffers (sync.Pool)
+### 10.4 Basic Performance (Optional) ⏸
 - [ ] Avoid unnecessary []byte copy
-- [ ] Profile memory usage
+- [ ] Optional: use sync.Pool for buffers
+
+
+## Phase 11: Mini Web Dashboard
+
+### 11.1 HTTP Server (reuse debug server)
+- [ ] Use net/http
+- [ ] Run on :8080 (configurable)
 
 ---
 
-### 12.2 Lock Optimization
-- [ ] Review RWMutex usage
-- [ ] Reduce lock contention
-- [ ] Consider sharded map if needed
+### 11.2 API Endpoints
+
+- [ ] GET /api/stations
+  - [ ] stationID
+  - [ ] fps
+  - [ ] total_frames
+  - [ ] dropped_frames
+  - [ ] connected
+  - [ ] last_seen
+
+- [ ] GET /api/system
+  - [ ] active_stations
+  - [ ] total_frames
+  - [ ] total_drops
+  - [ ] uptime
+
+- [ ] POST /api/station/:id/reconnect
+- [ ] POST /api/station/:id/disable (optional)
 
 ---
 
-### 12.3 Benchmark
-- [ ] Write benchmark for:
-  - [ ] frame parsing
-  - [ ] dispatcher routing
-- [ ] Run go test -bench=.
+### 11.3 Web UI (static HTML)
+
+- [ ] Create internal/web/static/index.html
+- [ ] Serve via http.FileServer
 
 ---
 
-### 12.4 Load Testing
-- [ ] Simulate multiple stations
-- [ ] Measure:
-  - [ ] CPU
-  - [ ] memory
-  - [ ] drop rate
+### 11.4 UI Features
+
+- [ ] Table: list stations
+- [ ] Show:
+  - [ ] station ID
+  - [ ] FPS
+  - [ ] drops
+  - [ ] status (🟢/🔴)
+- [ ] Auto refresh (2s via JS)
+- [ ] Button: reconnect
 
 ---
 
-## Phase 13: Advanced Features (Optional)
-
-### 13.1 RTCM Replay
-- [ ] Save frames to file
-- [ ] Replay tool for testing
+### 11.5 Basic Styling
+- [ ] Simple CSS (no framework)
+- [ ] Or use CDN (optional: Tailwind)
 
 ---
 
-### 13.2 Message Filtering
-- [ ] Filter by RTCM message type
-- [ ] Configurable allow/deny list
-
----
-
-### 13.3 Multi-Caster Output
-- [ ] One station → multiple casters
-- [ ] Config support
-
----
-
-### 13.4 Config Hot Reload
-- [ ] Watch config.json
-- [ ] Reload without restart
-
+### 11.6 Optional Enhancements
+- [ ] Chart (FPS over time)
+- [ ] Filter/search station
 
 ## Dependencies
 - github.com/google/gopacket v1.1.19

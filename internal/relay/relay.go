@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+const (
+	backoffStart = 1 * time.Second
+	backoffMax   = 60 * time.Second
+)
+
 type Relay struct {
 	config   CasterConfig
 	relayCfg RelayConfig
@@ -17,6 +22,7 @@ type Relay struct {
 	metrics  *Metrics
 	conn     net.Conn
 	stopped  bool
+	backoff  time.Duration
 }
 
 func NewRelay(caster CasterConfig, relayCfg RelayConfig, input <-chan []byte, metrics *Metrics) *Relay {
@@ -25,6 +31,7 @@ func NewRelay(caster CasterConfig, relayCfg RelayConfig, input <-chan []byte, me
 		relayCfg: relayCfg,
 		input:    input,
 		metrics:  metrics,
+		backoff:  backoffStart,
 	}
 }
 
@@ -39,9 +46,11 @@ func (r *Relay) Run(ctx context.Context) error {
 					Name:  r.config.Name,
 					Error: err.Error(),
 				})
-				time.Sleep(r.relayCfg.ReconnectInterval)
+				time.Sleep(r.backoff)
+				r.backoff = min(r.backoff*2, backoffMax)
 				continue
 			}
+			r.backoff = backoffStart
 			r.sendLoop(ctx)
 		}
 	}

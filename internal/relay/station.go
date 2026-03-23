@@ -46,10 +46,10 @@ func (p *StationParser) ExtractStationID(frame []byte) (uint16, error) {
 }
 
 func (p *StationParser) extractFromMSM(payload []byte) (uint16, error) {
-	if len(payload) < 5 {
+	if len(payload) < 4 {
 		return 0, nil
 	}
 
-	stationID := uint16(payload[3]) | (uint16(payload[4]&0x03) << 8)
+	stationID := uint16(payload[2]) | (uint16(payload[3]&0x0F) << 8)
 	return stationID, nil
 }

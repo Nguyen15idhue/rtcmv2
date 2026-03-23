@@ -17,6 +17,7 @@ type Dispatcher struct {
 	dynamicRelays  map[uint16]*time.Time
 	relayByStation map[*Relay]uint16
 	metrics        *Metrics
+	wg             sync.WaitGroup
 }
 
 func NewDispatcher(cfg Config, frameChan <-chan []byte, metrics *Metrics) *Dispatcher {
@@ -47,18 +48,29 @@ func NewDispatcher(cfg Config, frameChan <-chan []byte, metrics *Metrics) *Dispa
 
 func (d *Dispatcher) Start(ctx context.Context) {
 	for _, relay := range d.relays {
-		go func(r *Relay) {
-			if err := r.Run(ctx); err != nil {
+		d.wg.Add(1)
+		safeGo(fmt.Sprintf("relay-%s", relay.config.Name), func() {
+			defer d.wg.Done()
+			if err := relay.Run(ctx); err != nil {
 				logWarn("relay_stopped", LogFields{
-					Name:  r.config.Name,
+					Name:  relay.config.Name,
 					Error: err.Error(),
 				})
 			}
-		}(relay)
+		})
 	}
 
-	go d.route()
-	go d.cleanupLoop()
+	d.wg.Add(1)
+	safeGo("dispatcher-route", func() {
+		defer d.wg.Done()
+		d.route()
+	})
+
+	d.wg.Add(1)
+	safeGo("dispatcher-cleanup", func() {
+		defer d.wg.Done()
+		d.cleanupLoop()
+	})
 }
 
 func (d *Dispatcher) route() {
@@ -127,15 +139,17 @@ func (d *Dispatcher) createRelay(stationID uint16) chan []byte {
 	d.relays = append(d.relays, relay)
 	d.relayByStation[relay] = stationID
 
-	ctx := context.Background()
-	go func() {
+	d.wg.Add(1)
+	safeGo(fmt.Sprintf("relay-%d", stationID), func() {
+		defer d.wg.Done()
+		ctx := context.Background()
 		if err := relay.Run(ctx); err != nil {
 			logWarn("dynamic_relay_stopped", LogFields{
 				StationID: stationID,
 				Error:     err.Error(),
 			})
 		}
-	}()
+	})
 
 	logInfo("new_station_detected", LogFields{
 		StationID:  stationID,
@@ -151,8 +165,11 @@ func (d *Dispatcher) cleanupLoop() {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		d.cleanupIdle()
+	for {
+		select {
+		case <-ticker.C:
+			d.cleanupIdle()
+		}
 	}
 }
 
@@ -199,14 +216,15 @@ func (d *Dispatcher) removeRelayLocked(stationID uint16) {
 
 func (d *Dispatcher) Stop() {
 	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	for _, relay := range d.relays {
 		relay.Stop()
 	}
 	for _, ch := range d.inputChans {
 		close(ch)
 	}
+	d.mu.Unlock()
+
+	d.wg.Wait()
 }
 
 func (d *Dispatcher) GetMetrics() *Metrics {

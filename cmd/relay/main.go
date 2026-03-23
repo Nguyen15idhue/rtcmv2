@@ -7,11 +7,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"rtcmv2/internal/capture"
 	"rtcmv2/internal/debug"
 	"rtcmv2/internal/relay"
 )
+
+const shutdownTimeout = 10 * time.Second
 
 func main() {
 	configPath := "config.json"
@@ -36,21 +39,10 @@ func main() {
 
 	c := capture.NewCapture(captureCfg)
 
+	_ = c
+
 	d := relay.NewDispatcher(*relayCfg, captureCfg.FrameChan, metrics)
 	d.Start(ctx)
-
-	go func() {
-		sig := make(chan os.Signal, 1)
-		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-		<-sig
-		log.Println("received signal, stopping...")
-		cancel()
-	}()
-
-	go func() {
-		<-ctx.Done()
-		d.Stop()
-	}()
 
 	debugAddr := ":8080"
 	if os.Getenv("DEBUG_ADDR") != "" {
@@ -64,14 +56,34 @@ func main() {
 		log.Printf("  GET /healthz")
 		log.Printf("  GET /debug/stations")
 		log.Printf("  GET /debug/metrics")
-		if err := http.ListenAndServe(debugAddr, nil); err != nil {
+		if err := http.ListenAndServe(debugAddr, nil); err != nil && err != http.ErrServerClosed {
 			log.Printf("debug server error: %v", err)
 		}
 	}()
 	_ = debugSrv
 
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
 	log.Println("starting capture...")
-	if err := c.Run(ctx); err != nil {
-		log.Fatalf("capture error: %v", err)
+
+	select {
+	case sig := <-sigChan:
+		log.Printf("received %s, shutting down...", sig)
+		cancel()
+
+		done := make(chan struct{})
+		go func() {
+			close(captureCfg.FrameChan)
+			d.Stop()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+			log.Println("shutdown complete")
+		case <-time.After(shutdownTimeout):
+			log.Printf("shutdown timeout (%v), forcing exit", shutdownTimeout)
+		}
 	}
 }

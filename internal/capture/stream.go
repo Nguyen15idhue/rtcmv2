@@ -3,6 +3,7 @@ package capture
 import (
 	"io"
 	"log"
+	"runtime/debug"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/tcpassembly"
@@ -36,6 +37,12 @@ type tcpStream struct {
 }
 
 func (t *tcpStream) run() {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("tcpStream: panic recovered: %v\n%s", r, debug.Stack())
+		}
+	}()
+
 	buf := make([]byte, 4096)
 	for {
 		n, err := t.readerStream.Read(buf)

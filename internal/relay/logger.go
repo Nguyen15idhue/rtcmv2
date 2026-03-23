@@ -3,6 +3,7 @@ package relay
 import (
 	"log/slog"
 	"os"
+	"runtime/debug"
 )
 
 var logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
@@ -84,4 +85,18 @@ func logWarn(msg string, fields LogFields) {
 		args = append(args, "error", fields.Error)
 	}
 	logger.Warn(msg, args...)
+}
+
+func safeGo(name string, fn func()) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logError("panic_recovered", LogFields{
+					Name:  name,
+					Error: string(debug.Stack()),
+				})
+			}
+		}()
+		fn()
+	}()
 }
