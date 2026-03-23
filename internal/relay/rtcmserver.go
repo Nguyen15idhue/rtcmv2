@@ -96,8 +96,9 @@ func GenerateRTCMFrames(stationID uint16, count int) [][]byte {
 		frame[0] = 0xD3
 		frame[1] = 0x00
 		frame[2] = 0x12
-		frame[3] = 0x43
-		frame[4] = 0x20
+
+		frame[3] = 0x43 // Message type high byte (1074 = 0x0432)
+		frame[4] = 0x32 // Message type low byte
 		frame[5] = byte(stationID & 0xFF)
 		frame[6] = byte((stationID >> 8) & 0x0F)
 		for j := 7; j < 21; j++ {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"rtcmv2/internal/capture"
+	"github.com/Nguyen15idhue/rtcmv2/internal/capture"
 )
 
 func TestPcapE2E(t *testing.T) {

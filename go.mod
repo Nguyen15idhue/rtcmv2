@@ -1,4 +1,4 @@
-module rtcmv2
+module github.com/Nguyen15idhue/rtcmv2
 
 go 1.24.5
 

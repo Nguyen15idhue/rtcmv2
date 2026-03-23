@@ -64,6 +64,17 @@ func (r *Relay) Stop() {
 	}
 }
 
+func (r *Relay) Reconnect() {
+	if r.conn != nil {
+		r.conn.Close()
+	}
+	r.backoff = backoffStart
+}
+
+func (r *Relay) IsConnected() bool {
+	return r.conn != nil && !r.stopped
+}
+
 func (r *Relay) connect(ctx context.Context) error {
 	addr := fmt.Sprintf("%s:%d", r.config.Host, r.config.Port)
 

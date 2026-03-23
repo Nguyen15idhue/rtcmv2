@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"rtcmv2/internal/buffer"
+	"github.com/Nguyen15idhue/rtcmv2/internal/buffer"
 )
 
 func TestFullFlowWithSyntheticData(t *testing.T) {

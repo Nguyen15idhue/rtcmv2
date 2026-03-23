@@ -140,7 +140,7 @@ Endpoints:
 
 ### 11.1 HTTP Server (reuse debug server)
 - [ ] Use net/http
-- [ ] Run on :8080 (configurable)
+- [ ] Run on :1507 (configurable)
 
 ---
 
@@ -167,8 +167,7 @@ Endpoints:
 
 ### 11.3 Web UI (static HTML)
 
-- [ ] Create internal/web/static/index.html
-- [ ] Serve via http.FileServer
+
 
 ---
 

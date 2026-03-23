@@ -118,10 +118,6 @@ func (d *Dispatcher) route() {
 				s := d.metrics.getOrCreateStation(stationID, "unknown")
 				s.RecordDrop()
 			}
-			logWarn("frame_dropped", LogFields{
-				StationID: stationID,
-				Event:     "channel_full",
-			})
 		}
 	}
 }
@@ -229,4 +225,27 @@ func (d *Dispatcher) Stop() {
 
 func (d *Dispatcher) GetMetrics() *Metrics {
 	return d.metrics
+}
+
+func (d *Dispatcher) FindRelayByStationID(stationID uint16) *Relay {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	for relay, sid := range d.relayByStation {
+		if sid == stationID {
+			return relay
+		}
+	}
+	return nil
+}
+
+func (d *Dispatcher) GetStationIDs() []uint16 {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	ids := make([]uint16, 0, len(d.inputChans))
+	for id := range d.inputChans {
+		ids = append(ids, id)
+	}
+	return ids
 }
