@@ -22,7 +22,19 @@
     <div class="stations-section">
       <div class="section-header">
         <h2>Stations</h2>
-        <span class="count">{{ streamStore.stations.length }} stations</span>
+        <div class="header-actions">
+          <span class="count">{{ filteredStations.length }} stations</span>
+          <button class="btn-add" @click="openAddModal">+ Add Station</button>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <input 
+          v-model="searchQuery" 
+          type="text" 
+          placeholder="Search by ID or name..."
+          class="search-input"
+        />
       </div>
 
       <table class="data-table">
@@ -35,10 +47,11 @@
             <th>Frames</th>
             <th>Drops</th>
             <th>Last Seen</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="station in streamStore.stations" :key="station.id">
+          <tr v-for="station in filteredStations" :key="station.id">
             <td class="id-cell">{{ station.id }}</td>
             <td>{{ station.name || '-' }}</td>
             <td>
@@ -50,9 +63,15 @@
             <td>{{ formatNumber(station.frames_total || 0) }}</td>
             <td class="drops-cell">{{ formatNumber(station.frames_dropped || 0) }}</td>
             <td class="time-cell">{{ formatTime(station.last_seen) }}</td>
+            <td class="actions-cell">
+              <button class="btn-action" @click="openEditModal(station)">Edit</button>
+              <button class="btn-action danger" @click="confirmDelete(station)">Delete</button>
+            </td>
           </tr>
-          <tr v-if="streamStore.stations.length === 0">
-            <td colspan="7" class="no-data">No stations connected</td>
+          <tr v-if="filteredStations.length === 0">
+            <td colspan="8" class="no-data">
+              {{ searchQuery ? 'No stations match your search' : 'No stations connected' }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -61,19 +80,101 @@
     <div class="last-update">
       Last updated: {{ lastUpdateFormatted }}
     </div>
+
+    <StationModal
+      v-if="showStationModal"
+      :station="editingStation"
+      @close="closeModal"
+      @save="saveStation"
+    />
+
+    <ConfirmDialog
+      v-if="showDeleteConfirm"
+      title="Delete Station"
+      :message="`Are you sure you want to delete station ${deletingStation?.id}?`"
+      variant="danger"
+      @confirm="deleteStation"
+      @cancel="showDeleteConfirm = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useStreamStore } from '../stores/stream'
+import { useStationsStore } from '../stores/stations'
+import StationModal from '../components/StationModal.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const streamStore = useStreamStore()
+const stationsStore = useStationsStore()
+
+const searchQuery = ref('')
+const showStationModal = ref(false)
+const editingStation = ref(null)
+const showDeleteConfirm = ref(false)
+const deletingStation = ref(null)
+
+const filteredStations = computed(() => {
+  const query = searchQuery.value.toLowerCase().trim()
+  if (!query) return streamStore.stations
+  
+  return streamStore.stations.filter(s => {
+    const idMatch = String(s.id).includes(query)
+    const nameMatch = (s.name || '').toLowerCase().includes(query)
+    return idMatch || nameMatch
+  })
+})
 
 const lastUpdateFormatted = computed(() => {
   if (!streamStore.lastUpdate) return '-'
   return new Date(streamStore.lastUpdate).toLocaleTimeString()
 })
+
+function openAddModal() {
+  editingStation.value = null
+  showStationModal.value = true
+}
+
+function openEditModal(station) {
+  editingStation.value = station
+  showStationModal.value = true
+}
+
+function closeModal() {
+  showStationModal.value = false
+  editingStation.value = null
+}
+
+async function saveStation(data) {
+  try {
+    if (editingStation.value) {
+      await stationsStore.updateStation(data.id, data)
+    } else {
+      await stationsStore.createStation(data)
+    }
+    await stationsStore.fetchStations()
+    closeModal()
+  } catch (e) {
+    alert('Error: ' + e.message)
+  }
+}
+
+function confirmDelete(station) {
+  deletingStation.value = station
+  showDeleteConfirm.value = true
+}
+
+async function deleteStation() {
+  try {
+    await stationsStore.deleteStation(deletingStation.value.id)
+    await stationsStore.fetchStations()
+    showDeleteConfirm.value = false
+    deletingStation.value = null
+  } catch (e) {
+    alert('Error: ' + e.message)
+  }
+}
 
 function formatNumber(n) {
   return new Intl.NumberFormat().format(n)
@@ -143,9 +244,48 @@ function formatTime(nanos) {
   color: #2c3e50;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
 .count {
   font-size: 0.85rem;
   color: #999;
+}
+
+.btn-add {
+  background: #27ae60;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.btn-add:hover {
+  background: #219a52;
+}
+
+.search-bar {
+  padding: 12px 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 300px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3498db;
 }
 
 .data-table {
@@ -206,6 +346,34 @@ function formatTime(nanos) {
 .time-cell {
   font-size: 0.85rem;
   color: #666;
+}
+
+.actions-cell {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-action {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  background: #e0e0e0;
+  color: #333;
+}
+
+.btn-action:hover {
+  background: #d0d0d0;
+}
+
+.btn-action.danger {
+  background: #fdecea;
+  color: #e74c3c;
+}
+
+.btn-action.danger:hover {
+  background: #fbdcd7;
 }
 
 .no-data {

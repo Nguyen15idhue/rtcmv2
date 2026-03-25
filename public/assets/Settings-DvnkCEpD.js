@@ -1,0 +1,1 @@
+import{_ as s}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{o as n,c as o,a as t}from"./index-YccBkFi4.js";const a={},r={class:"settings-page"};function c(i,e){return n(),o("div",r,[...e[0]||(e[0]=[t("h1",null,"Settings",-1),t("p",null,"Settings will be implemented here.",-1)])])}const d=s(a,[["render",c],["__scopeId","data-v-859f1bca"]]);export{d as default};

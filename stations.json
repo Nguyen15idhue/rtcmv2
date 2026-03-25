@@ -1,0 +1,11 @@
+{
+  "stations": [
+    {
+      "id": 1000,
+      "name": "Test Station",
+      "outputs": [],
+      "created_at": "2026-03-25T15:12:32.8078876+07:00"
+    }
+  ],
+  "unassigned": []
+}

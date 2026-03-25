@@ -1,0 +1,1 @@
+import{_ as o}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{o as s,c as a,a as t}from"./index-YccBkFi4.js";const n={},r={class:"stations-page"};function c(d,e){return s(),a("div",r,[...e[0]||(e[0]=[t("h1",null,"Stations",-1),t("p",null,"Stations management will be implemented here.",-1)])])}const _=o(n,[["render",c],["__scopeId","data-v-49dc8ddb"]]);export{_ as default};
