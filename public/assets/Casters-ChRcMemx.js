@@ -1,0 +1,1 @@
+import{_ as t}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{o as a,c as r,a as s}from"./index-BQHtc5QI.js";const o={},n={class:"casters-page"};function c(l,e){return a(),r("div",n,[...e[0]||(e[0]=[s("h1",null,"Casters",-1),s("p",null,"Casters management will be implemented here.",-1)])])}const m=t(o,[["render",c],["__scopeId","data-v-dfa01f3e"]]);export{m as default};
